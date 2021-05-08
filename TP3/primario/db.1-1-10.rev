@@ -1,0 +1,23 @@
+;
+; BIND data file for local loopback interface
+;
+$TTL	604800
+1.1.10.in-addr.arpa.	IN	SOA	ns.cc.pt. PL01G05.cc.pt. (
+			      2		; Serial
+			 604800		; Refresh
+			  86400		; Retry
+			2419200		; Expire
+			 604800 )	; Negative Cache TTL
+;
+	IN	NS	ns.cc.pt.
+	IN	NS	ns2.cc.pt.
+
+$ORIGIN 1.1.10.in-addr.arpa.
+2	IN	PTR	mail.cc.pt.
+1	IN	PTR	Server1.cc.pt.
+2	IN	PTR	Server2.cc.pt.
+3	IN	PTR	Server3.cc.pt.
+2	IN	PTR	www.cc.pt.
+1	IN	PTR	ns.cc.pt.
+3	IN	PTR pop.cc.pt.
+3	IN	PTR imap.cc.pt.
