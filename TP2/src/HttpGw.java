@@ -10,23 +10,28 @@ import java.util.Map;
 
 class RequestHandler implements Runnable {
     private Socket socket;
+    private DatagramSocket datagramSocket;
     private Map<String,String> map;
-    private DataOutputStream out;
-    private DataInputStream in;
+    private Map<Integer,Socket> sockets;
+    private BufferedWriter out;
+    private BufferedReader in;
 
-    public RequestHandler(Socket socket, Map<String, String> map) {
+    public RequestHandler(Socket socket, DatagramSocket datagramSocket, Map<String, String> map, Map<Integer, Socket> sockets) {
         this.socket = socket;
+        this.datagramSocket = datagramSocket;
         this.map = map;
+        this.sockets = sockets;
     }
-
 
     public void run() {
         try {
-            this.in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-            this.out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-            DatagramSocket datagramSocket = new DatagramSocket(8080);
-            String msg = in.readUTF();
-            PacketUDP p = new PacketUDP(1, 2, 1, 1, msg.getBytes(StandardCharsets.UTF_8));
+            this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            this.out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            //DatagramSocket datagramSocket = new DatagramSocket(8080);
+            String msg = in.readLine();
+            System.out.println(msg);
+            PacketUDP p = new PacketUDP(sockets.size()+1, 2, 1, 1, msg.getBytes(StandardCharsets.UTF_8));
+            sockets.put(p.getIdent_Pedido(), socket);
             Thread worker = new Thread(new UPDSender(socket,datagramSocket,p));
             worker.start();
 
@@ -39,10 +44,12 @@ class RequestHandler implements Runnable {
 class UDPListener implements Runnable {
     private DatagramSocket datagramSocket;
     private Map<String, String> map;
+    private Map<Integer, Socket> sockets;
 
-    public UDPListener(DatagramSocket datagramSocket, Map<String, String> map) {
+    public UDPListener(DatagramSocket datagramSocket, Map<String, String> map, Map<Integer, Socket> sockets) {
         this.datagramSocket = datagramSocket;
         this.map = map;
+        this.sockets = sockets;
     }
 
     public void run() {
@@ -55,7 +62,7 @@ class UDPListener implements Runnable {
                 System.arraycopy(packet.getData(),0,result,0,packet.getLength());
                 PacketUDP received = new PacketUDP(result);
                 if(received.getTipo() != 1){
-                    Thread sender = new Thread(new UPDSender(null,datagramSocket, received));
+                    Thread sender = new Thread(new UPDSender(sockets.get(received.getIdent_Pedido()),datagramSocket, received));
                     sender.start();
                 }
                 else {
@@ -76,7 +83,7 @@ class UPDSender implements Runnable {
     private DatagramSocket datagramSocket;
     private PacketUDP received;
 
-    public UPDSender(Socket socket, DatagramSocket datagramSocket, PacketUDP received) {
+    public UPDSender(Socket socket, DatagramSocket datagramSocket, PacketUDP received) throws IOException {
         this.socket = socket;
         this.datagramSocket = datagramSocket;
         this.received = received;
@@ -89,12 +96,15 @@ class UPDSender implements Runnable {
             InetAddress address = InetAddress.getByName("localhost");
             byte[] pBytes = received.toBytes();
             if (received.getTipo() == 3) {
+                System.out.println("Cliente");
                 DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
                 out.writeUTF(new String(received.getPayload(), StandardCharsets.UTF_8));
                 out.flush();
+                socket.close();
             }
             else {
-                DatagramPacket packet = new DatagramPacket(pBytes, pBytes.length,address,8888);
+                System.out.println("FFS");
+                DatagramPacket packet = new DatagramPacket(pBytes, pBytes.length,address,8880);
                 datagramSocket.send(packet);
             }
 
@@ -114,12 +124,13 @@ public class HttpGw {
         ServerSocket ss = new ServerSocket(8080);
         DatagramSocket datagramSocket = new DatagramSocket(8888);
         Map<String, String> map = new HashMap<>();
-        Thread listener = new Thread(new UDPListener(datagramSocket, map));
+        Map<Integer,Socket> sockets = new HashMap<>();
+        Thread listener = new Thread(new UDPListener(datagramSocket, map,sockets));
         listener.start();
 
         while (true) {
             Socket socket = ss.accept();
-            Thread worker = new Thread(new RequestHandler(socket, map));
+            Thread worker = new Thread(new RequestHandler(socket,datagramSocket, map,sockets));
             worker.start();
         }
     }

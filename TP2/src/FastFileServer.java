@@ -21,7 +21,7 @@ class ServerWorker implements Runnable {
         System.out.println("Received: " + payload);
         System.out.println(received);
         payload = payload + "/FFS";
-        return new PacketUDP(received.getIdent_Pedido(),2,received.getChunk(),received.getFragmento(),payload.getBytes(StandardCharsets.UTF_8));
+        return new PacketUDP(received.getIdent_Pedido(),3,received.getChunk(),received.getFragmento(),payload.getBytes(StandardCharsets.UTF_8));
     }
 
     public void run(){
@@ -34,7 +34,7 @@ class ServerWorker implements Runnable {
                 int port = packet.getPort();
                 PacketUDP returner = readPacket(packet);
                 byte[] returner_bytes = returner.toBytes();
-                packet = new DatagramPacket(returner_bytes, returner_bytes.length,address,port);
+                packet = new DatagramPacket(returner_bytes, returner_bytes.length,address,8888);
                 socket.send(packet);
             } catch (IOException e) {
                 e.printStackTrace();
