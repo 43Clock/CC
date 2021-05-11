@@ -46,9 +46,12 @@ class ServerWorker implements Runnable {
 
 public class FastFileServer {
     public static void main(String[] args) throws IOException, InterruptedException {
-        DatagramSocket socket = new DatagramSocket(8080);
-            Thread worker = new Thread(new ServerWorker(socket));
-            worker.start();
-            worker.join();
+        DatagramSocket socket = new DatagramSocket(8880);
+        byte[] b = new byte[0];
+        PacketUDP first = new PacketUDP(1,1,1,1,b);
+        socket.send(new DatagramPacket(first.toBytes(),first.toBytes().length,InetAddress.getByName("localhost"),8888));
+        Thread worker = new Thread(new ServerWorker(socket));
+        worker.start();
+        worker.join();
     }
 }

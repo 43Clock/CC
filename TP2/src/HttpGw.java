@@ -1,53 +1,12 @@
 import PDU.PacketUDP;
 
+import javax.xml.crypto.Data;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-class ProcessRequest implements Runnable {
-    private Socket socket;
-    private DatagramSocket datagramSocket;
-    private Map<String,String> map;
-    private String msg;
-
-    public ProcessRequest(Socket socket, DatagramSocket datagramSocket, Map<String, String> map, String msg) {
-        this.socket = socket;
-        this.datagramSocket = datagramSocket;
-        this.map = map;
-        this.msg = msg;
-    }
-
-    void sendMessageOut(String response) throws IOException {
-        DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-        out.writeUTF(response);
-        out.flush();
-    }
-
-    @Override
-    public void run() {
-        try {
-            InetAddress address = InetAddress.getByName("localhost");
-            PacketUDP p = new PacketUDP(1, 1, 1, 1, msg.getBytes(StandardCharsets.UTF_8));
-            byte[] pBytes = p.toBytes();
-            DatagramPacket packet = new DatagramPacket(pBytes, pBytes.length,address,4445);
-            datagramSocket.send(packet);
-            byte[] pBytes_received = new byte[2048*2];
-            DatagramPacket packet2 = new DatagramPacket(pBytes_received, pBytes_received.length);
-            datagramSocket.receive(packet2);
-            byte[] result = new byte[packet2.getLength()];
-            System.arraycopy(packet2.getData(),0,result,0,packet2.getLength());
-            PacketUDP received = new PacketUDP(result);
-            System.out.println(received);
-            datagramSocket.close();
-            sendMessageOut(new String(received.getPayload(),StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
-}
 
 class RequestHandler implements Runnable {
     private Socket socket;
@@ -67,7 +26,8 @@ class RequestHandler implements Runnable {
             this.out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
             DatagramSocket datagramSocket = new DatagramSocket(8080);
             String msg = in.readUTF();
-            Thread worker = new Thread(new ProcessRequest(socket,datagramSocket, map,msg));
+            PacketUDP p = new PacketUDP(1, 2, 1, 1, msg.getBytes(StandardCharsets.UTF_8));
+            Thread worker = new Thread(new UPDSender(socket,datagramSocket,p));
             worker.start();
 
         } catch (IOException e) {
@@ -76,12 +36,86 @@ class RequestHandler implements Runnable {
     }
 }
 
+class UDPListener implements Runnable {
+    private DatagramSocket datagramSocket;
+    private Map<String, String> map;
+
+    public UDPListener(DatagramSocket datagramSocket, Map<String, String> map) {
+        this.datagramSocket = datagramSocket;
+        this.map = map;
+    }
+
+    public void run() {
+        try {
+            while (true) {
+                byte[] pBytes_received = new byte[2048 * 2];
+                DatagramPacket packet = new DatagramPacket(pBytes_received, pBytes_received.length);
+                datagramSocket.receive(packet);
+                byte[] result = new byte[packet.getLength()];
+                System.arraycopy(packet.getData(),0,result,0,packet.getLength());
+                PacketUDP received = new PacketUDP(result);
+                if(received.getTipo() != 1){
+                    Thread sender = new Thread(new UPDSender(null,datagramSocket, received));
+                    sender.start();
+                }
+                else {
+                    System.out.println("Adiciona IP à lista");
+                }
+            }
+
+
+        } catch (IOException e) {
+            System.out.println("Erro: "+e.getMessage());
+        }
+
+    }
+}
+
+class UPDSender implements Runnable {
+    private Socket socket;
+    private DatagramSocket datagramSocket;
+    private PacketUDP received;
+
+    public UPDSender(Socket socket, DatagramSocket datagramSocket, PacketUDP received) {
+        this.socket = socket;
+        this.datagramSocket = datagramSocket;
+        this.received = received;
+    }
+
+    public void run(){
+        //Aqui vê qual é o tipo do pacote e faz cenas com isso
+
+        try {
+            InetAddress address = InetAddress.getByName("localhost");
+            byte[] pBytes = received.toBytes();
+            if (received.getTipo() == 3) {
+                DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
+                out.writeUTF(new String(received.getPayload(), StandardCharsets.UTF_8));
+                out.flush();
+            }
+            else {
+                DatagramPacket packet = new DatagramPacket(pBytes, pBytes.length,address,8888);
+                datagramSocket.send(packet);
+            }
+
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+}
+
 
 
 public class HttpGw {
     public static void main(String[] args) throws IOException {
         ServerSocket ss = new ServerSocket(8080);
+        DatagramSocket datagramSocket = new DatagramSocket(8888);
         Map<String, String> map = new HashMap<>();
+        Thread listener = new Thread(new UDPListener(datagramSocket, map));
+        listener.start();
 
         while (true) {
             Socket socket = ss.accept();
