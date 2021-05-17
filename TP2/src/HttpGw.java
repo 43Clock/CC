@@ -6,6 +6,8 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 class RequestHandler implements Runnable {
@@ -23,17 +25,32 @@ class RequestHandler implements Runnable {
         this.sockets = sockets;
     }
 
+    private String parseHTTP(String http) {
+        String[] splited = http.split("\n");
+        Pattern pattern = Pattern.compile("GET /(.+) HTTP/1\\.1");
+        Matcher matcher = pattern.matcher(splited[0]);
+        if (matcher.find())
+            return matcher.group(1);
+        else return null;
+    }
+
     public void run() {
         try {
             this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             //DatagramSocket datagramSocket = new DatagramSocket(8080);
-            String msg = in.readLine();
-            System.out.println(msg);
-            PacketUDP p = new PacketUDP(sockets.size()+1, 2, 1, 1, msg.getBytes(StandardCharsets.UTF_8));
-            sockets.put(p.getIdent_Pedido(), socket);
-            Thread worker = new Thread(new UPDSender(socket,datagramSocket,p));
-            worker.start();
+            StringBuilder msg = new StringBuilder();
+            String str;
+            while (!(str = in.readLine()).equals("")) {
+                msg.append(str).append("\n");
+            }
+            String file = parseHTTP(msg.toString());
+            if(file != null) {
+                PacketUDP p = new PacketUDP(sockets.size() + 1, 2, 1, 1, file.getBytes(StandardCharsets.UTF_8));
+                sockets.put(p.getIdent_Pedido(), socket);
+                Thread worker = new Thread(new UPDSender(socket,datagramSocket,p));
+                worker.start();
+            }
 
         } catch (IOException e) {
             System.out.println(e.getMessage());
@@ -98,7 +115,8 @@ class UPDSender implements Runnable {
             if (received.getTipo() == 3) {
                 System.out.println("Cliente");
                 DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-                out.writeUTF(new String(received.getPayload(), StandardCharsets.UTF_8));
+                String aux = new String(received.getPayload(), StandardCharsets.UTF_8);
+                out.writeBytes(aux);
                 out.flush();
                 socket.close();
             }
