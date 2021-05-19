@@ -4,24 +4,28 @@ import javax.xml.crypto.Data;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 class RequestHandler implements Runnable {
     private Socket socket;
     private DatagramSocket datagramSocket;
-    private Map<String,String> map;
+    private Map<InetAddress,List<String>> ips;
     private Map<Integer,Socket> sockets;
+    private Map<Integer,Integer> pedidos;
     private BufferedWriter out;
     private BufferedReader in;
 
-    public RequestHandler(Socket socket, DatagramSocket datagramSocket, Map<String, String> map, Map<Integer, Socket> sockets) {
+    public RequestHandler(Socket socket, DatagramSocket datagramSocket, Map<InetAddress, List<String>> ips, Map<Integer, Socket> sockets) {
         this.socket = socket;
         this.datagramSocket = datagramSocket;
-        this.map = map;
+        this.ips = ips;
         this.sockets = sockets;
     }
 
@@ -46,10 +50,16 @@ class RequestHandler implements Runnable {
             }
             String file = parseHTTP(msg.toString());
             if(file != null) {
-                PacketUDP p = new PacketUDP(sockets.size() + 1, 2, 1, 1, file.getBytes(StandardCharsets.UTF_8));
-                sockets.put(p.getIdent_Pedido(), socket);
-                Thread worker = new Thread(new UPDSender(socket,datagramSocket,p));
-                worker.start();
+                List<InetAddress> ips_list = this.ips.keySet().stream().filter(a->!this.ips.get(a).contains(file)).collect(Collectors.toList());
+                int ident = sockets.size()+1;
+                pedidos.put(ident, ips_list.size());
+                sockets.putIfAbsent(ident, socket);
+                //@TODO COMECAR POR AQUI
+                for (InetAddress ip :ips_list ) {
+                        PacketUDP p = new PacketUDP(ident, 2, 1, 1,ip, new byte[0]);
+                        Thread worker = new Thread(new UPDSender(socket,datagramSocket,p));
+                        worker.start();
+                }
             }
 
         } catch (IOException e) {
@@ -60,12 +70,12 @@ class RequestHandler implements Runnable {
 
 class UDPListener implements Runnable {
     private DatagramSocket datagramSocket;
-    private Map<String, String> map;
+    private Map<InetAddress, List<String>> ips;
     private Map<Integer, Socket> sockets;
 
-    public UDPListener(DatagramSocket datagramSocket, Map<String, String> map, Map<Integer, Socket> sockets) {
+    public UDPListener(DatagramSocket datagramSocket, Map<InetAddress, List<String>> ips, Map<Integer, Socket> sockets) {
         this.datagramSocket = datagramSocket;
-        this.map = map;
+        this.ips = ips;
         this.sockets = sockets;
     }
 
@@ -78,12 +88,19 @@ class UDPListener implements Runnable {
                 byte[] result = new byte[packet.getLength()];
                 System.arraycopy(packet.getData(),0,result,0,packet.getLength());
                 PacketUDP received = new PacketUDP(result);
+                switch (received.getTipo()) {
+                    case 1:
+                        ips.put(packet.getAddress(), new ArrayList<>());
+                        System.out.println("Ip adicionado");
+                        break;
+
+
+                }
+
+
                 if(received.getTipo() != 1){
                     Thread sender = new Thread(new UPDSender(sockets.get(received.getIdent_Pedido()),datagramSocket, received));
                     sender.start();
-                }
-                else {
-                    System.out.println("Adiciona IP à lista");
                 }
             }
 
@@ -141,7 +158,7 @@ public class HttpGw {
     public static void main(String[] args) throws IOException {
         ServerSocket ss = new ServerSocket(8080);
         DatagramSocket datagramSocket = new DatagramSocket(8888);
-        Map<String, String> map = new HashMap<>();
+        Map<InetAddress, List<String>> map = new HashMap<>();
         Map<Integer,Socket> sockets = new HashMap<>();
         Thread listener = new Thread(new UDPListener(datagramSocket, map,sockets));
         listener.start();

@@ -12,7 +12,7 @@ class ServerWorker implements Runnable {
         this.socket = socket;
     }
 
-    private PacketUDP readPacket(DatagramPacket packet) {
+    private PacketUDP readPacket(DatagramPacket packet) throws UnknownHostException {
 
         byte[] packetData = new byte[packet.getLength()];
         System.arraycopy(packet.getData(), 0, packetData, 0, packet.getLength());
@@ -21,7 +21,7 @@ class ServerWorker implements Runnable {
         System.out.println("Received: " + payload);
         System.out.println(received);
         payload = payload + "/FFS";
-        return new PacketUDP(received.getIdent_Pedido(),3,received.getChunk(),received.getFragmento(),payload.getBytes(StandardCharsets.UTF_8));
+        return new PacketUDP(received.getIdent_Pedido(),3,received.getChunk(),received.getFragmento(),received.getIp(),payload.getBytes(StandardCharsets.UTF_8));
     }
 
     public void run(){
@@ -47,8 +47,8 @@ class ServerWorker implements Runnable {
 public class FastFileServer {
     public static void main(String[] args) throws IOException, InterruptedException {
         DatagramSocket socket = new DatagramSocket(8880);
-        byte[] b = new byte[0];
-        PacketUDP first = new PacketUDP(1,1,1,1,b);
+        byte[] b = new byte[]{5};
+        PacketUDP first = new PacketUDP(1,1,1,1,socket.getInetAddress(),b);
         socket.send(new DatagramPacket(first.toBytes(),first.toBytes().length,InetAddress.getByName("localhost"),8888));
         Thread worker = new Thread(new ServerWorker(socket));
         worker.start();
