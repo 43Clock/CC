@@ -1,11 +1,0 @@
---2021-05-11 15:47:55--  http://localhost:8080/awgdawdwa
-Resolving localhost (localhost)... 127.0.0.1
-Connecting to localhost (localhost)|127.0.0.1|:8080... connected.
-HTTP request sent, awaiting response... 200 No headers, assuming HTTP/0.9
-Length: unspecified
-Saving to: ‘awgdawdwa.1’
-
-awgdawdwa.1             [<=>                 ]       0  --.-KB/s               awgdawdwa.1             [ <=>                ]      29  --.-KB/s    in 0s      
-
-2021-05-11 15:47:55 (2,92 MB/s) - ‘awgdawdwa.1’ saved [29]
-
