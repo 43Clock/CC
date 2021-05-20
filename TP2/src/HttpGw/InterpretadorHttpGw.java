@@ -59,19 +59,25 @@ public class InterpretadorHttpGw implements Runnable {
                                 if(received2.getIdent_Pedido() == received.getIdent_Pedido() && received2.getTipo() == received.getTipo()){
                                     flag = true;
                                     rec++;
+                                    if (received2.getPayload().length != 0) {
+                                        String file = new String(received2.getPayload(), StandardCharsets.UTF_8);
+                                        ips.get(received2.getIp()).add(file);
+                                    }
                                 }
                                 else{
                                     queue.add(temp);
                                 }
                             }
-                            if (received.getPayload().length != 0) {
-                                String file = new String(received.getPayload(), StandardCharsets.UTF_8);
-                                ips.get(received.getIp()).add(file);
-                            }
+
                         }
                         sleep.put(received.getIdent_Pedido(),false);
                         break;
                     case 5:
+                        //Send Ack
+                        PacketUDP p = new PacketUDP(received.getIdent_Pedido(), 6, received.getChunk(), received.getFragmento(),received.getIp(), new byte[0]);
+                        Thread worker = new Thread(new SenderHttpGw(null,socket,p));
+                        worker.start();
+
                         int sizeOfLastPayload = 0;
                         byte[] reconstruct = new byte[PacketUDP.MAX_SIZE* received.getChunk()];
                         if(received.getChunk() == received.getFragmento()){
@@ -92,6 +98,11 @@ public class InterpretadorHttpGw implements Runnable {
                                 System.arraycopy(temp.getData(), 0, result2, 0, temp.getLength());
                                 received2 = new PacketUDP(result2);
                                 if(received2.getIdent_Pedido() == received.getIdent_Pedido() && received2.getTipo() == received.getTipo()){
+                                    //Send ack
+                                    PacketUDP p2 = new PacketUDP(received2.getIdent_Pedido(), 6, received2.getChunk(), received2.getFragmento(),received2.getIp(), new byte[0]);
+                                    Thread worker2 = new Thread(new SenderHttpGw(null,socket,p2));
+                                    worker2.start();
+
                                     if(received2.getChunk() == received2.getFragmento()){
                                         sizeOfLastPayload = received2.getPayload().length;
                                         System.arraycopy(received2.getPayload(),0,reconstruct,PacketUDP.MAX_SIZE*(received2.getChunk()-1),sizeOfLastPayload);
@@ -106,12 +117,15 @@ public class InterpretadorHttpGw implements Runnable {
                                 }
                             }
                         }
-                        System.out.println(sizeOfLastPayload);
                         reconstruct = Arrays.copyOfRange(reconstruct,0,PacketUDP.MAX_SIZE*(received.getChunk()-1)+sizeOfLastPayload);
                         DataOutputStream out = new DataOutputStream(new BufferedOutputStream(sockets.get(received.getIdent_Pedido()).getOutputStream()));
                         out.write(reconstruct);
                         out.flush();
                         sockets.get(received.getIdent_Pedido()).close();
+                        break;
+                    case 7:
+                        InetAddress ip = received.getIp();
+                        ips.remove(ip);
                         break;
                 }
 

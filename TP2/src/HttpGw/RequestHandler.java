@@ -43,7 +43,7 @@ public class RequestHandler implements Runnable {
         try {
             this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            //DatagramSocket datagramSocket = new DatagramSocket(8080);
+
             StringBuilder msg = new StringBuilder();
             String str;
             while (!(str = in.readLine()).equals("")) {
@@ -69,20 +69,18 @@ public class RequestHandler implements Runnable {
                 sockets.putIfAbsent(ident, socket);
                 for (InetAddress ip :ips_list ) {
                     PacketUDP p = new PacketUDP(ident, 2, ips_list.size(), 1,ip, file.getBytes(StandardCharsets.UTF_8));
-                    Thread worker = new Thread(new UPDSender(socket,datagramSocket,p));
+                    Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p));
                     worker.start();
                 }
                 if(ips_list.size()!= 0){
                     sleep.put(ident, true);
-                    System.out.println("Adormeci");
                 }else sleep.put(ident,false);
                 while (sleep.get(ident));
-                //@TODO Caso em que o ffs se desliga e fica à espera infinitamente
-                //Dps sleepar
 
-                askForFile(file,ident);
-
-
+                //@TODO Fazer cenas quando n tem o ficheiro
+                if(!askForFile(file,ident)){
+                    sockets.get(ident).close();
+                }
             }
 
         } catch (IOException e) {
@@ -90,7 +88,7 @@ public class RequestHandler implements Runnable {
         }
     }
 
-    private void askForFile(String file, int ident) throws IOException {
+    private boolean askForFile(String file, int ident) throws IOException {
         List<InetAddress> ips_list = new ArrayList<>();
         String sizeS = null;
         for (Map.Entry<InetAddress, List<String>> a : ips.entrySet()) {
@@ -103,17 +101,22 @@ public class RequestHandler implements Runnable {
                 }
             }
         }
+        if(ips_list.size() == 0){
+            return false;
+        }
         if(sizeS!=null) {
             long size = Long.parseLong(sizeS);
             int chunks = (int) Math.ceil((float) size / (float) PacketUDP.MAX_SIZE);
             int j = 0;
+            System.out.println(ips_list);
             for (int i = 0; i < chunks; i++) {
                 InetAddress ip = ips_list.get(j++);
                 if(j == ips_list.size()) j = 0;
                 PacketUDP p = new PacketUDP(ident, 4, chunks, i+1,ip, file.getBytes(StandardCharsets.UTF_8));
-                Thread worker = new Thread(new UPDSender(socket,datagramSocket,p));
+                Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p));
                 worker.start();
             }
         }
+        return true;
     }
 }

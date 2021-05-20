@@ -7,7 +7,7 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
 public class PacketUDP implements Serializable {
-    public static final int MAX_SIZE = 4096;
+    public static final int MAX_SIZE = 1000;
     private int ident_Pedido;
     //private String ident_Pacote;
     private int tipo;
@@ -75,6 +75,7 @@ public class PacketUDP implements Serializable {
         s.append("Tipo: ").append(this.tipo).append(";");
         s.append("Chunk: ").append(this.chunk).append(";");
         s.append("Fragmento: ").append(this.fragmento).append(";");
+        s.append("IP:").append(this.ip.toString()).append(";");
         return s.toString();
     }
 

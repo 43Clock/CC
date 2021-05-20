@@ -1,52 +1,12 @@
 package HttpGw;
 
-import PDU.PacketUDP;
-
-import java.io.*;
+import java.io.IOException;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.LinkedBlockingDeque;
-
-
-class UPDSender implements Runnable {
-    private Socket socket;
-    private DatagramSocket datagramSocket;
-    private PacketUDP received;
-
-    public UPDSender(Socket socket, DatagramSocket datagramSocket, PacketUDP received) throws IOException {
-        this.socket = socket;
-        this.datagramSocket = datagramSocket;
-        this.received = received;
-    }
-
-    public void run(){
-
-        try {
-            InetAddress address = InetAddress.getByName("localhost");
-            byte[] pBytes = received.toBytes();
-            if (received.getTipo() == 3) {
-                System.out.println("Cliente");
-                DataOutputStream out = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-                String aux = new String(received.getPayload(), StandardCharsets.UTF_8);
-                out.writeBytes(aux);
-                out.flush();
-                socket.close();
-            }
-            else {
-                DatagramPacket packet = new DatagramPacket(pBytes, pBytes.length,address,8880);
-                datagramSocket.send(packet);
-            }
-
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-
-    }
-}
-
 
 
 public class HttpGw {
