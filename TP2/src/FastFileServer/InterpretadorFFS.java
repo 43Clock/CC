@@ -1,16 +1,17 @@
+package FastFileServer;
+
 import PDU.PacketUDP;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Queue;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
 
-class InterpretadorFFS implements Runnable {
+public class InterpretadorFFS implements Runnable {
     private DatagramSocket socket;
     private Queue<DatagramPacket> queue;
 
@@ -71,42 +72,5 @@ class InterpretadorFFS implements Runnable {
             }
 
         }
-    }
-}
-
-class ListenerFFS implements Runnable {
-    private DatagramSocket datagramSocket;
-    private Queue<DatagramPacket> queue;
-
-    public ListenerFFS(DatagramSocket datagramSocket, Queue<DatagramPacket> queue) {
-        this.datagramSocket = datagramSocket;
-        this.queue = queue;
-    }
-
-    public void run(){
-        try {
-            while (true) {
-                byte[] pBytes_received = new byte[PacketUDP.MAX_SIZE+200];
-                DatagramPacket packet = new DatagramPacket(pBytes_received, pBytes_received.length);
-                datagramSocket.receive(packet);
-                queue.add(packet);
-            }
-        } catch (IOException e) {
-            System.out.println("Erro: "+e.getMessage());
-        }
-    }
-}
-
-public class FastFileServer {
-    public static void main(String[] args) throws IOException, InterruptedException {
-        DatagramSocket socket = new DatagramSocket(8880);
-        Queue<DatagramPacket> queue = new LinkedBlockingQueue<>();
-        byte[] b = new byte[]{5};
-        PacketUDP first = new PacketUDP(0,1,1,1,socket.getInetAddress(),b);
-        socket.send(new DatagramPacket(first.toBytes(),first.toBytes().length,InetAddress.getByName("localhost"),8888));
-        Thread listener = new Thread(new ListenerFFS(socket, queue));
-        listener.start();
-        Thread interpretador = new Thread(new InterpretadorFFS(socket,queue));
-        interpretador.start();
     }
 }
