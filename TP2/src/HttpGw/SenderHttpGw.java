@@ -32,7 +32,7 @@ public class SenderHttpGw implements Runnable {
             if (socket != null) {
                 PrintWriter out = new PrintWriter(socket.getOutputStream());
                 BufferedOutputStream outData = new BufferedOutputStream(socket.getOutputStream());
-                if(dados.length != 0 && datagramSocket==null){
+                if(dados != null && dados.length != 0 && datagramSocket==null){
                     out.println("HTTP/1.1 200 OK");
                     out.println("Server: Java HTTP Server from HttpGw : 1.0");
                     out.println("Date: " + new Date());

@@ -28,7 +28,7 @@ public class HttpGw {
 
         while (true) {
             Socket socket = ss.accept();
-            Thread worker = new Thread(new RequestHandler(socket,datagramSocket, map,sockets,sleep,lock));
+            Thread worker = new Thread(new RequestHandler(socket,datagramSocket, map,sockets,sleep,lock,timeout));
             worker.start();
         }
     }

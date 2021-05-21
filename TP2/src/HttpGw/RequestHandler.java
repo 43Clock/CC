@@ -21,14 +21,16 @@ public class RequestHandler implements Runnable {
     private Map<Integer,Socket> sockets;
     private Map<Integer,Boolean> sleep;
     private ReentrantLock lock;
+    private Map<Integer,Boolean> timeout;
 
-    public RequestHandler(Socket socket, DatagramSocket datagramSocket, Map<InetAddress, List<String>> ips, Map<Integer, Socket> sockets, Map<Integer, Boolean> sleep, ReentrantLock lock) {
+    public RequestHandler(Socket socket, DatagramSocket datagramSocket, Map<InetAddress, List<String>> ips, Map<Integer, Socket> sockets, Map<Integer, Boolean> sleep, ReentrantLock lock, Map<Integer, Boolean> timeout) {
         this.socket = socket;
         this.datagramSocket = datagramSocket;
         this.ips = ips;
         this.sockets = sockets;
         this.sleep = sleep;
         this.lock = lock;
+        this.timeout = timeout;
     }
 
     private String parseHTTP(String http) {
@@ -43,8 +45,6 @@ public class RequestHandler implements Runnable {
     public void run() {
         try {
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-
             StringBuilder msg = new StringBuilder();
             String str;
             while (!(str = in.readLine()).equals("")) {
@@ -68,7 +68,9 @@ public class RequestHandler implements Runnable {
 
                 lock.lock();
                 int ident = sockets.size()+1;
+                timeout.put(ident, false);
                 sockets.putIfAbsent(ident, socket);
+
                 lock.unlock();
                 for (InetAddress ip :ips_list ) {
                     PacketUDP p = new PacketUDP(ident, 2, ips_list.size(), 1,ip, file.getBytes(StandardCharsets.UTF_8));
@@ -81,9 +83,11 @@ public class RequestHandler implements Runnable {
                 while (sleep.get(ident));
 
                 //@TODO Fazer cenas quando n tem o ficheiro
-                if(!askForFile(file,ident)){
-                    Thread worker = new Thread(new SenderHttpGw(socket,null,null,new byte[0]));
-                    worker.start();
+                if(!timeout.get(ident)) {
+                    if (!askForFile(file, ident)) {
+                        Thread worker = new Thread(new SenderHttpGw(socket, null, null, new byte[0]));
+                        worker.start();
+                    }
                 }
             }
 

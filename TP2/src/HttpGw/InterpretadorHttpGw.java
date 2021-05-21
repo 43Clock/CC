@@ -50,17 +50,21 @@ public class InterpretadorHttpGw implements Runnable {
                         System.out.println("Ip adicionado");
                         break;
                     case 3:
+                        timedOut.put(received.getIdent_Pedido(),false);
+                        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+                        executor.schedule(new TimeOutRequest(received.getIdent_Pedido(),timedOut), 10, TimeUnit.SECONDS);
+
                         if (received.getPayload().length != 0) {
                             String file = new String(received.getPayload(), StandardCharsets.UTF_8);
                             ips.get(packet.getAddress()).add(file);
                         }
                         int rec = 1;
-                        while (rec < received.getChunk()) {
+                        while (rec < received.getChunk() && !timedOut.get(received.getIdent_Pedido())) {
                             while (queue.peek()==null);//Fica à espera se não houver pacotes na queue
                             boolean flag = false;
                             DatagramPacket temp;
                             PacketUDP received2;
-                            while (!flag) {
+                            while (!flag && !timedOut.get(received.getIdent_Pedido())) {
                                 lock.lock();
                                     temp = queue.remove();
                                 lock.unlock();
@@ -83,13 +87,19 @@ public class InterpretadorHttpGw implements Runnable {
                             }
 
                         }
+                        executor.shutdownNow();
+                        if(timedOut.get(received.getIdent_Pedido())){
+                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), socket, null, null));
+                            worker2.start();
+                        }
+
                         sleep.put(received.getIdent_Pedido(),false);
                         break;
                     case 5:
                         //TimeOutHandler
                         timedOut.put(received.getIdent_Pedido(),false);
-                        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-                        executor.schedule(new TimeOutRequest(received.getIdent_Pedido(),timedOut), 10, TimeUnit.SECONDS);
+                        ScheduledExecutorService executor2 = Executors.newSingleThreadScheduledExecutor();
+                        executor2.schedule(new TimeOutRequest(received.getIdent_Pedido(),timedOut), 10, TimeUnit.SECONDS);
 
                         //Send Ack
                         PacketUDP p = new PacketUDP(received.getIdent_Pedido(), 6, received.getChunk(), received.getFragmento(),received.getIp(), new byte[0]);
@@ -139,13 +149,13 @@ public class InterpretadorHttpGw implements Runnable {
                                 }
                             }
                         }
-                        executor.shutdownNow();
+                        executor2.shutdownNow();
                         if(!timedOut.get(received.getIdent_Pedido())) {
                             reconstruct = Arrays.copyOfRange(reconstruct, 0, PacketUDP.MAX_SIZE * (received.getChunk() - 1) + sizeOfLastPayload);
                             Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), null, null, reconstruct));
                             worker2.start();
                         }else {
-                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), socket, null, reconstruct));
+                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), socket, null, null));
                             worker2.start();
                         }
                         break;
