@@ -6,14 +6,17 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.util.Queue;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ListenerFFS implements Runnable {
     private DatagramSocket datagramSocket;
     private Queue<DatagramPacket> queue;
+    private ReentrantLock lock;
 
-    public ListenerFFS(DatagramSocket datagramSocket, Queue<DatagramPacket> queue) {
+    public ListenerFFS(DatagramSocket datagramSocket, Queue<DatagramPacket> queue, ReentrantLock lock) {
         this.datagramSocket = datagramSocket;
         this.queue = queue;
+        this.lock = lock;
     }
 
     public void run(){

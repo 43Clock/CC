@@ -12,22 +12,28 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Queue;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class InterpretadorFFS implements Runnable {
     private DatagramSocket socket;
     private Queue<DatagramPacket> queue;
+    private Queue<DatagramPacket> ackQueue;
     private InetAddress httpgwIP;
     private int httpgwPort;
+    private ReentrantLock lock;
 
-    public InterpretadorFFS(DatagramSocket socket, Queue<DatagramPacket> queue, InetAddress httpgwIP, int httpgwPort) {
+    public InterpretadorFFS(DatagramSocket socket, Queue<DatagramPacket> queue, Queue<DatagramPacket> ackQueue, InetAddress httpgwIP, int httpgwPort, ReentrantLock lock) {
         this.socket = socket;
         this.queue = queue;
+        this.ackQueue = ackQueue;
         this.httpgwIP = httpgwIP;
         this.httpgwPort = httpgwPort;
+        this.lock = lock;
     }
 
     private PacketUDP readPacket(DatagramPacket packet) throws IOException {
@@ -64,7 +70,7 @@ public class InterpretadorFFS implements Runnable {
                 res = new PacketUDP(received.getIdent_Pedido(), 5, chunks, fragmento, received.getIp(), send);
                 break;
             case 6:
-                queue.add(packet);
+                ackQueue.add(packet);
                 break;
         }
         return res;
@@ -77,16 +83,16 @@ public class InterpretadorFFS implements Runnable {
                 while (queue.peek() == null);
                 DatagramPacket packet = queue.remove();
                 PacketUDP returner = readPacket(packet);
-                byte[] returner_bytes = returner.toBytes();
-                packet = new DatagramPacket(returner_bytes, returner_bytes.length,httpgwIP,httpgwPort);
-                socket.send(packet);
-                if (returner.getTipo() == 5){
-                    Thread ack = new Thread(new WaitForAck(socket, queue, httpgwIP, httpgwPort, returner));
-                    ack.start();
-                    ack.join();
+                if(returner!= null) {
+                    byte[] returner_bytes = returner.toBytes();
+                    packet = new DatagramPacket(returner_bytes, returner_bytes.length, httpgwIP, httpgwPort);
+                    socket.send(packet);
+                    if (returner.getTipo() == 5) {
+                        Thread ack = new Thread(new WaitForAck(socket, ackQueue, httpgwIP, httpgwPort, returner, lock));
+                        ack.start();
+                    }
                 }
-                System.out.println("Packet Sent");
-            } catch (IOException | InterruptedException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
 
@@ -100,19 +106,22 @@ class WaitForAck implements Runnable {
     private InetAddress httpgwIP;
     private int httpgwPort;
     private PacketUDP returner;
+    private ReentrantLock lock;
 
-    public WaitForAck(DatagramSocket socket, Queue<DatagramPacket> queue, InetAddress httpgwIP, int httpgwPort, PacketUDP returner) {
+    public WaitForAck(DatagramSocket socket, Queue<DatagramPacket> queue, InetAddress httpgwIP, int httpgwPort, PacketUDP returner, ReentrantLock lock) {
         this.socket = socket;
         this.queue = queue;
         this.httpgwIP = httpgwIP;
         this.httpgwPort = httpgwPort;
         this.returner = returner;
+        this.lock = lock;
     }
 
     public void run(){
         try {
             ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
             executor.schedule(new ResendPacket(socket, httpgwIP, httpgwPort, returner), 8, TimeUnit.SECONDS);
+            lock.lock();
             while (queue.peek() == null);
             DatagramPacket temp;
             PacketUDP received2;
@@ -128,6 +137,7 @@ class WaitForAck implements Runnable {
                     queue.add(temp);
                 }
             }
+            lock.unlock();
             executor.shutdownNow();
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -154,7 +164,6 @@ class ResendPacket implements Runnable {
             byte[] returner_bytes = packet.toBytes();
             DatagramPacket packetD = new DatagramPacket(returner_bytes, returner_bytes.length,httpgwIP,httpgwPort);
             socket.send(packetD);
-            System.out.println("PacketResent");
         } catch (IOException e) {
             e.printStackTrace();
         }

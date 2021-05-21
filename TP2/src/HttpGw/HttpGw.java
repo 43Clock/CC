@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.locks.ReentrantLock;
 
 
 public class HttpGw {
@@ -17,14 +18,17 @@ public class HttpGw {
         Map<Integer,Socket> sockets = new HashMap<>();
         Map<Integer, Boolean> sleep = new HashMap<>();
         Queue<DatagramPacket> queue = new LinkedBlockingDeque<>();
-        Thread listener = new Thread(new ListenerHttpGw(datagramSocket, queue));
+        ReentrantLock lock = new ReentrantLock();
+        ReentrantLock lockQueue = new ReentrantLock();
+        Map<Integer,Boolean> timeout = new HashMap<>();
+        Thread listener = new Thread(new ListenerHttpGw(datagramSocket, queue,lockQueue));
         listener.start();
-        Thread interpretador = new Thread(new InterpretadorHttpGw(datagramSocket,map,sockets,sleep,queue));
+        Thread interpretador = new Thread(new InterpretadorHttpGw(datagramSocket,map,sockets,sleep,queue,lockQueue,timeout));
         interpretador.start();
 
         while (true) {
             Socket socket = ss.accept();
-            Thread worker = new Thread(new RequestHandler(socket,datagramSocket, map,sockets,sleep));
+            Thread worker = new Thread(new RequestHandler(socket,datagramSocket, map,sockets,sleep,lock));
             worker.start();
         }
     }

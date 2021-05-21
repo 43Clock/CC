@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,15 +20,15 @@ public class RequestHandler implements Runnable {
     private Map<InetAddress, List<String>> ips;
     private Map<Integer,Socket> sockets;
     private Map<Integer,Boolean> sleep;
-    private BufferedWriter out;
-    private BufferedReader in;
+    private ReentrantLock lock;
 
-    public RequestHandler(Socket socket, DatagramSocket datagramSocket, Map<InetAddress, List<String>> ips, Map<Integer, Socket> sockets, Map<Integer, Boolean> sleep) {
+    public RequestHandler(Socket socket, DatagramSocket datagramSocket, Map<InetAddress, List<String>> ips, Map<Integer, Socket> sockets, Map<Integer, Boolean> sleep, ReentrantLock lock) {
         this.socket = socket;
         this.datagramSocket = datagramSocket;
         this.ips = ips;
         this.sockets = sockets;
         this.sleep = sleep;
+        this.lock = lock;
     }
 
     private String parseHTTP(String http) {
@@ -41,8 +42,8 @@ public class RequestHandler implements Runnable {
 
     public void run() {
         try {
-            this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
 
             StringBuilder msg = new StringBuilder();
             String str;
@@ -65,11 +66,13 @@ public class RequestHandler implements Runnable {
                     if(!flag) ips_list.add(a.getKey());
                 }
 
+                lock.lock();
                 int ident = sockets.size()+1;
                 sockets.putIfAbsent(ident, socket);
+                lock.unlock();
                 for (InetAddress ip :ips_list ) {
                     PacketUDP p = new PacketUDP(ident, 2, ips_list.size(), 1,ip, file.getBytes(StandardCharsets.UTF_8));
-                    Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p));
+                    Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p,null));
                     worker.start();
                 }
                 if(ips_list.size()!= 0){
@@ -79,7 +82,8 @@ public class RequestHandler implements Runnable {
 
                 //@TODO Fazer cenas quando n tem o ficheiro
                 if(!askForFile(file,ident)){
-                    sockets.get(ident).close();
+                    Thread worker = new Thread(new SenderHttpGw(socket,null,null,new byte[0]));
+                    worker.start();
                 }
             }
 
@@ -108,12 +112,11 @@ public class RequestHandler implements Runnable {
             long size = Long.parseLong(sizeS);
             int chunks = (int) Math.ceil((float) size / (float) PacketUDP.MAX_SIZE);
             int j = 0;
-            System.out.println(ips_list);
             for (int i = 0; i < chunks; i++) {
                 InetAddress ip = ips_list.get(j++);
                 if(j == ips_list.size()) j = 0;
                 PacketUDP p = new PacketUDP(ident, 4, chunks, i+1,ip, file.getBytes(StandardCharsets.UTF_8));
-                Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p));
+                Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p,null));
                 worker.start();
             }
         }
