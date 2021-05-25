@@ -87,6 +87,7 @@ public class InterpretadorFFS implements Runnable {
                     byte[] returner_bytes = returner.toBytes();
                     packet = new DatagramPacket(returner_bytes, returner_bytes.length, httpgwIP, httpgwPort);
                     socket.send(packet);
+                    System.out.println("Packet Sent!");
                     if (returner.getTipo() == 5) {
                         Thread ack = new Thread(new WaitForAck(socket, ackQueue, httpgwIP, httpgwPort, returner, lock));
                         ack.start();
@@ -164,6 +165,7 @@ class ResendPacket implements Runnable {
             byte[] returner_bytes = packet.toBytes();
             DatagramPacket packetD = new DatagramPacket(returner_bytes, returner_bytes.length,httpgwIP,httpgwPort);
             socket.send(packetD);
+            System.out.println("Packet Resent!");
         } catch (IOException e) {
             e.printStackTrace();
         }

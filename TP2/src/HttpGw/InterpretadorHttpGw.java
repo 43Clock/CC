@@ -133,7 +133,7 @@ public class InterpretadorHttpGw implements Runnable {
                                 if(received2.getIdent_Pedido() == received.getIdent_Pedido() && received2.getTipo() == received.getTipo()){
                                     //Send ack
                                     PacketUDP p2 = new PacketUDP(received2.getIdent_Pedido(), 6, received2.getChunk(), received2.getFragmento(), new byte[0]);
-                                    Thread worker2 = new Thread(new SenderHttpGw(null,socket,p2,null,packet.getAddress()));
+                                    Thread worker2 = new Thread(new SenderHttpGw(null,socket,p2,null,temp.getAddress()));
                                     worker2.start();
 
                                     if(received2.getChunk() == received2.getFragmento()){
