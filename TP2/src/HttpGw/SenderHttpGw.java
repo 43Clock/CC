@@ -18,12 +18,14 @@ public class SenderHttpGw implements Runnable {
     private DatagramSocket datagramSocket;
     private PacketUDP received;
     private byte[] dados;
+    private InetAddress ip;
 
-    public SenderHttpGw(Socket socket, DatagramSocket datagramSocket, PacketUDP received, byte[] dados) {
+    public SenderHttpGw(Socket socket, DatagramSocket datagramSocket, PacketUDP received, byte[] dados, InetAddress ip) {
         this.socket = socket;
         this.datagramSocket = datagramSocket;
         this.received = received;
         this.dados = dados;
+        this.ip = ip;
     }
 
     public void run(){
@@ -61,7 +63,7 @@ public class SenderHttpGw implements Runnable {
             }
             else {
                 byte[] pBytes = received.toBytes();
-                DatagramPacket packet = new DatagramPacket(pBytes, pBytes.length,received.getIp(),8888);
+                DatagramPacket packet = new DatagramPacket(pBytes, pBytes.length,ip,8888);
                 datagramSocket.send(packet);
             }
 

@@ -73,8 +73,8 @@ public class RequestHandler implements Runnable {
 
                 lock.unlock();
                 for (InetAddress ip :ips_list ) {
-                    PacketUDP p = new PacketUDP(ident, 2, ips_list.size(), 1,ip, file.getBytes(StandardCharsets.UTF_8));
-                    Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p,null));
+                    PacketUDP p = new PacketUDP(ident, 2, ips_list.size(), 1, file.getBytes(StandardCharsets.UTF_8));
+                    Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p,null,ip));
                     worker.start();
                 }
                 if(ips_list.size()!= 0){
@@ -85,7 +85,7 @@ public class RequestHandler implements Runnable {
                 //@TODO Fazer cenas quando n tem o ficheiro
                 if(!timeout.get(ident)) {
                     if (!askForFile(file, ident)) {
-                        Thread worker = new Thread(new SenderHttpGw(socket, null, null, new byte[0]));
+                        Thread worker = new Thread(new SenderHttpGw(socket, null, null, new byte[0],null));
                         worker.start();
                     }
                 }
@@ -119,8 +119,8 @@ public class RequestHandler implements Runnable {
             for (int i = 0; i < chunks; i++) {
                 InetAddress ip = ips_list.get(j++);
                 if(j == ips_list.size()) j = 0;
-                PacketUDP p = new PacketUDP(ident, 4, chunks, i+1,ip, file.getBytes(StandardCharsets.UTF_8));
-                Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p,null));
+                PacketUDP p = new PacketUDP(ident, 4, chunks, i+1, file.getBytes(StandardCharsets.UTF_8));
+                Thread worker = new Thread(new SenderHttpGw(null,datagramSocket,p,null,ip));
                 worker.start();
             }
         }

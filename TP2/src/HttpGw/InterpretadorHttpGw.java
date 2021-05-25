@@ -14,6 +14,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static java.lang.Math.max;
+
 public class InterpretadorHttpGw implements Runnable {
     private DatagramSocket socket;
     private Map<InetAddress, List<String>> ips;
@@ -89,7 +91,7 @@ public class InterpretadorHttpGw implements Runnable {
                         }
                         executor.shutdownNow();
                         if(timedOut.get(received.getIdent_Pedido())){
-                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), socket, null, null));
+                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), socket, null, null,packet.getAddress()));
                             worker2.start();
                         }
 
@@ -99,11 +101,12 @@ public class InterpretadorHttpGw implements Runnable {
                         //TimeOutHandler
                         timedOut.put(received.getIdent_Pedido(),false);
                         ScheduledExecutorService executor2 = Executors.newSingleThreadScheduledExecutor();
-                        executor2.schedule(new TimeOutRequest(received.getIdent_Pedido(),timedOut), 10, TimeUnit.SECONDS);
+                        int time = max(10,(received.getChunk()/50));
+                        executor2.schedule(new TimeOutRequest(received.getIdent_Pedido(),timedOut), time, TimeUnit.SECONDS);
 
                         //Send Ack
-                        PacketUDP p = new PacketUDP(received.getIdent_Pedido(), 6, received.getChunk(), received.getFragmento(),received.getIp(), new byte[0]);
-                        Thread worker = new Thread(new SenderHttpGw(null,socket,p,null));
+                        PacketUDP p = new PacketUDP(received.getIdent_Pedido(), 6, received.getChunk(), received.getFragmento(), new byte[0]);
+                        Thread worker = new Thread(new SenderHttpGw(null,socket,p,null,packet.getAddress()));
                         worker.start();
 
                         int sizeOfLastPayload = 0;
@@ -129,8 +132,8 @@ public class InterpretadorHttpGw implements Runnable {
                                 received2 = new PacketUDP(result2);
                                 if(received2.getIdent_Pedido() == received.getIdent_Pedido() && received2.getTipo() == received.getTipo()){
                                     //Send ack
-                                    PacketUDP p2 = new PacketUDP(received2.getIdent_Pedido(), 6, received2.getChunk(), received2.getFragmento(),received2.getIp(), new byte[0]);
-                                    Thread worker2 = new Thread(new SenderHttpGw(null,socket,p2,null));
+                                    PacketUDP p2 = new PacketUDP(received2.getIdent_Pedido(), 6, received2.getChunk(), received2.getFragmento(), new byte[0]);
+                                    Thread worker2 = new Thread(new SenderHttpGw(null,socket,p2,null,packet.getAddress()));
                                     worker2.start();
 
                                     if(received2.getChunk() == received2.getFragmento()){
@@ -152,10 +155,10 @@ public class InterpretadorHttpGw implements Runnable {
                         executor2.shutdownNow();
                         if(!timedOut.get(received.getIdent_Pedido())) {
                             reconstruct = Arrays.copyOfRange(reconstruct, 0, PacketUDP.MAX_SIZE * (received.getChunk() - 1) + sizeOfLastPayload);
-                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), null, null, reconstruct));
+                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), null, null, reconstruct,packet.getAddress()));
                             worker2.start();
                         }else {
-                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), socket, null, null));
+                            Thread worker2 = new Thread(new SenderHttpGw(sockets.get(received.getIdent_Pedido()), socket, null, null,packet.getAddress()));
                             worker2.start();
                         }
                         break;

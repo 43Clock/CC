@@ -21,7 +21,7 @@ class ShutDownFFS extends Thread implements Runnable{
 
     public void run(){
         try {
-            PacketUDP packet = new PacketUDP(0,7,1,1,socket.getInetAddress(),new byte[0]);
+            PacketUDP packet = new PacketUDP(0,7,1,1,new byte[0]);
             socket.send(new DatagramPacket(packet.toBytes(),packet.toBytes().length,ip,8888));
             System.out.println("Closing");
         } catch (Exception e) {
@@ -35,7 +35,7 @@ public class FastFileServer {
         DatagramSocket socket = new DatagramSocket(8888);
         Queue<DatagramPacket> queue = new LinkedBlockingQueue<>();
         Queue<DatagramPacket> ackQueue = new LinkedBlockingQueue<>();
-        PacketUDP first = new PacketUDP(0,1,1,1,socket.getInetAddress(),new byte[0]);
+        PacketUDP first = new PacketUDP(0,1,1,1,new byte[0]);
         DatagramPacket packet = new DatagramPacket(first.toBytes(),first.toBytes().length,InetAddress.getByName(args[0]),Integer.parseInt(args[1]));
         socket.send(packet);
         ReentrantLock lockQueue = new ReentrantLock();

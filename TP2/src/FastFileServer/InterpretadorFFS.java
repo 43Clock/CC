@@ -49,9 +49,9 @@ public class InterpretadorFFS implements Runnable {
                     long size = file.length();
                     StringBuilder ret = new StringBuilder();
                     ret.append(path).append("=").append(size);
-                    res = new PacketUDP(received.getIdent_Pedido(), 3, received.getChunk(), received.getFragmento(), received.getIp(), ret.toString().getBytes(StandardCharsets.UTF_8));
+                    res = new PacketUDP(received.getIdent_Pedido(), 3, received.getChunk(), received.getFragmento(), ret.toString().getBytes(StandardCharsets.UTF_8));
                 }else {
-                    res = new PacketUDP(received.getIdent_Pedido(), 3, received.getChunk(), received.getFragmento(), received.getIp(), new byte[0]);
+                    res = new PacketUDP(received.getIdent_Pedido(), 3, received.getChunk(), received.getFragmento(), new byte[0]);
                 }
                 break;
             case 4:
@@ -67,7 +67,7 @@ public class InterpretadorFFS implements Runnable {
                 else{
                     send = Arrays.copyOfRange(fileContent,PacketUDP.MAX_SIZE*(fragmento-1),PacketUDP.MAX_SIZE*(fragmento));
                 }
-                res = new PacketUDP(received.getIdent_Pedido(), 5, chunks, fragmento, received.getIp(), send);
+                res = new PacketUDP(received.getIdent_Pedido(), 5, chunks, fragmento, send);
                 break;
             case 6:
                 ackQueue.add(packet);
